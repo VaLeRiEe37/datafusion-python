@@ -59,3 +59,52 @@ pub fn scalar_to_pyarrow(scalar: &ScalarValue, py: Python) -> PyResult<PyObject>
 
     Ok(pyscalar)
 }
+
+/// Convert a DataFusion data type to a pandas-compatible dtype string
+pub fn datafusion_to_pandas_dtype(dtype: &DataType) -> String {
+    match dtype {
+        DataType::Boolean => "bool".to_string(),
+        DataType::Int8 => "int8".to_string(),
+        DataType::Int16 => "int16".to_string(),
+        DataType::Int32 => "int32".to_string(),
+        DataType::Int64 => "int64".to_string(),
+        DataType::UInt8 => "uint8".to_string(),
+        DataType::UInt16 => "uint16".to_string(),
+        DataType::UInt32 => "uint32".to_string(),
+        DataType::UInt64 => "uint64".to_string(),
+        DataType::Float32 => "float32".to_string(),
+        DataType::Float64 => "float64".to_string(),
+        DataType::Utf8 | DataType::LargeUtf8 => "object".to_string(),
+        DataType::Date32 | DataType::Date64 => "datetime64[ns]".to_string(),
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => "datetime64[ns]".to_string(),
+        DataType::Timestamp(TimeUnit::Microsecond, _) => "datetime64[us]".to_string(),
+        DataType::Timestamp(TimeUnit::Millisecond, _) => "datetime64[ms]".to_string(),
+        DataType::Timestamp(TimeUnit::Second, _) => "datetime64[s]".to_string(),
+        // Add more type mappings in the future if needed
+        _ => "object".to_string(), // Default to object for complex types
+    }
+}
+
+/// Convert a pandas dtype string to a DataFusion data type
+pub fn pandas_dtype_to_datafusion(dtype: &str) -> Result<DataType, DataFusionError> {
+    match dtype {
+        "bool" => Ok(DataType::Boolean),
+        "int8" => Ok(DataType::Int8),
+        "int16" => Ok(DataType::Int16),
+        "int32" | "int" => Ok(DataType::Int32),
+        "int64" => Ok(DataType::Int64),
+        "uint8" => Ok(DataType::UInt8),
+        "uint16" => Ok(DataType::UInt16),
+        "uint32" => Ok(DataType::UInt32),
+        "uint64" => Ok(DataType::UInt64),
+        "float32" | "float" => Ok(DataType::Float32),
+        "float64" => Ok(DataType::Float64),
+        "object" | "string" => Ok(DataType::Utf8),
+        "datetime64[ns]" => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
+        "datetime64[us]" => Ok(DataType::Timestamp(TimeUnit::Microsecond, None)),
+        "datetime64[ms]" => Ok(DataType::Timestamp(TimeUnit::Millisecond, None)),
+        "datetime64[s]" => Ok(DataType::Timestamp(TimeUnit::Second, None)),
+        // Add more type mappings in the future if needed
+        _ => Err(DataFusionError::Plan(format!("Unsupported pandas dtype: {}", dtype))),
+    }
+}
