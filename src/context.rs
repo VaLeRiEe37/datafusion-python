@@ -956,6 +956,53 @@ impl PySessionContext {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (path, infer_schema=true, limit=1000))]
+    pub fn read_auto(
+        &self,
+        path: &str,
+        infer_schema: bool,
+        limit: usize,
+        py: Python,
+    ) -> PyDataFusionResult<PyDataFrame> {
+        // Auto-detect the file format based on extension
+        let lower_path = path.to_lowercase();
+        
+        if lower_path.ends_with(".csv") {
+            // Use CSV reader with simplified options
+            let options = CsvReadOptions::new()
+                .has_header(true)
+                .schema_infer_max_records(limit);
+            
+            let result = self.ctx.read_csv(path, options);
+            let df = wait_for_future(py, result)?;
+            Ok(PyDataFrame::new(df))
+        } else if lower_path.ends_with(".parquet") {
+            // Use Parquet reader
+            let options = ParquetReadOptions::default();
+            let result = self.ctx.read_parquet(path, options);
+            let df = wait_for_future(py, result)?;
+            Ok(PyDataFrame::new(df))
+        } else if lower_path.ends_with(".json") {
+            // Use JSON reader
+            let mut options = NdJsonReadOptions::default();
+            options.schema_infer_max_records = limit;
+            let result = self.ctx.read_json(path, options);
+            let df = wait_for_future(py, result)?;
+            Ok(PyDataFrame::new(df))
+        } else if lower_path.ends_with(".avro") {
+            // Use Avro reader
+            let options = AvroReadOptions::default();
+            let result = self.ctx.read_avro(path, options);
+            let df = wait_for_future(py, result)?;
+            Ok(PyDataFrame::new(df))
+        } else {
+            Err(crate::errors::PyDataFusionError::Common(
+                format!("Unsupported file format for path: {}", path)
+            ))
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (path, schema=None, table_partition_cols=vec![], file_extension=".avro"))]
     pub fn read_avro(
         &self,
